@@ -1,4 +1,4 @@
-<img width="782" height="850" alt="image" src="https://github.com/user-attachments/assets/9828dcd5-df94-4f9e-aeba-5bee2cf36c1f" /># Technical-Test-Data-Engineer---Mohamad-Gilang-Ramdani
+# Technical-Test-Data-Engineer---Mohamad-Gilang-Ramdani
 
 # Data Warehouse & Dashboard Penjualan
 
@@ -29,7 +29,8 @@ Proyek ini merupakan implementasi pipeline ELT (Extract, Load, Transform) dari d
 - **Visualisasi** dengan Google Charts (line, bar, pie).
 
 ## 🏗️ Arsitektur Data
-![ERD](screenshots/erd.png)
+<img width="1450" height="928" alt="supabase-schema-zywsjxwavkpjjzgsipow (1)" src="https://github.com/user-attachments/assets/598115ec-909c-48a5-a236-dfff0abbe034" />
+
 *Star Schema: Tabel fakta `fact_sales` terhubung ke dimensi `dim_product`, `dim_customer`, `dim_sales`, `dim_date`.*
 
 **Penjelasan**:
@@ -75,37 +76,13 @@ Jika ingin menyimpan data di spreadsheet untuk keperluan lain, jalankan [`export
 
 ## 📸 Screenshot Dashboard
 
-| Tab Time Analysis | Tab Detail |
-|-------------------|------------|
-| ![Time](screenshots/dashboard-time.png) | ![Detail](screenshots/dashboard-detail.png) |
+<img width="389" height="416" alt="image" src="https://github.com/user-attachments/assets/bfb533b4-7a1e-4da9-a685-f1ec9f5e9c44" />
 
-| Grafik Customer Harian | Tabel Diskon |
-|------------------------|--------------|
-| ![Customer Daily](screenshots/customer-daily.png) | ![Discount](screenshots/discount-table.png) |
+
+<img width="386" height="321" alt="image" src="https://github.com/user-attachments/assets/4ac32592-bbdd-42ee-b8ca-dd82cde48c82" />
+
 
 ## 🔍 Kode Penting
 
-### 1. Script ETL (SQL) – Membuat Tabel Fakta
-```sql
-INSERT INTO fact_sales (
-    sale_id, date_key, product_key, customer_key, sales_key,
-    qty, unit_price, total_amount, discount_amount, tax_amount
-)
-SELECT
-    s.unique_key,
-    d.date_key,
-    p.product_key,
-    c.customer_key,
-    sl.sales_key,
-    s."Qty",
-    s."Harga Unit(Mu)"::FLOAT,
-    CAST(REPLACE(REPLACE(s."Subtot Net Pjk(Mu)", '.', ''), ',', '.') AS FLOAT),
-    CAST(REPLACE(REPLACE(s."Subtot Disc(Mu)", '.', ''), ',', '.') AS FLOAT),
-    CAST(REPLACE(REPLACE(s."Pjk(Mu)", '.', ''), ',', '.') AS FLOAT)
-FROM stg_sales s
-LEFT JOIN dim_date d ON TO_DATE(s."Tgl Ref", 'DD/MM/YYYY') = d.full_date
-LEFT JOIN dim_product p ON s."Kode Barang" = p.kode_barang
-LEFT JOIN dim_customer c ON s."Kode Cust" = c.kode_cust
-LEFT JOIN dim_sales sl ON s."Kode Sales" = sl.kode_sales AND s."Nama Sales" = sl.nama_sales;
 
 Technical Test: Data Engineer
