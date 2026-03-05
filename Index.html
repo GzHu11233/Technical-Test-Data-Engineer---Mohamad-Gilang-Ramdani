@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dashboard Penjualan</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body { background-color: #f4f7fc; font-family: 'Segoe UI', sans-serif; }
+    .dashboard-container { max-width: 1600px; margin: 0 auto; padding: 20px; }
+    .dashboard-header { background: linear-gradient(135deg, #0d3b66, #1a4d80); color: white; padding: 1.5rem; border-radius: 20px; margin-bottom: 2rem; }
+    .filter-card { background: white; padding: 1.8rem; border-radius: 20px; margin-bottom: 25px; box-shadow: 0 5px 20px rgba(0,0,0,0.05); }
+    .btn-apply { background: #0d3b66; color: white; border: none; padding: 10px 30px; border-radius: 12px; font-weight: 600; }
+    .btn-apply:hover { background: #0a2e4f; }
+    .nav-tabs .nav-link { border-radius: 30px; padding: 12px 30px; font-weight: 600; color: #5a6a7a; background: white; margin-right: 10px; }
+    .nav-tabs .nav-link.active { background: #0d3b66; color: white; }
+    .tab-content { background: white; border-radius: 24px; padding: 2rem; margin-top: 20px; box-shadow: 0 5px 30px rgba(0,0,0,0.05); }
+    .stat-card { background: white; border-radius: 20px; padding: 1.5rem; box-shadow: 0 8px 20px rgba(0,0,0,0.02); height: 100%; }
+    .stat-card .card-title { font-size: 0.9rem; color: #7f8c8d; }
+    .stat-card .card-value { font-size: 2rem; font-weight: 700; color: #0d3b66; }
+    .chart-container { position: relative; height: 280px; width: 100%; margin: 10px 0; }
+    .insight-box { background: #eaf3ff; border-left: 6px solid #0d3b66; border-radius: 16px; padding: 1.5rem; margin: 25px 0; }
+    .loading-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.8); backdrop-filter: blur(3px); display: flex; justify-content: center; align-items: center; z-index: 9999; }
+    .spinner-custom { width: 60px; height: 60px; border: 5px solid #e0e7ef; border-top-color: #0d3b66; border-radius: 50%; animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+    th { background-color: #0d3b66; color: white; padding: 8px; text-align: left; }
+    td { padding: 8px; border-bottom: 1px solid #ddd; }
+  </style>
+</head>
+<body>
+<div class="dashboard-container">
+  <div id="loadingSpinner" class="loading-overlay" style="display: none;">
+    <div class="spinner-custom"></div>
+  </div>
+
+  <div class="dashboard-header">
+    <h1 class="display-6 fw-bold">Dashboard Analisis Penjualan</h1>
+    <p class="mb-0 opacity-75">Data diperbarui: <span id="currentDate"></span></p>
+  </div>
+
+  <!-- Filter -->
+  <div class="filter-card">
+    <div class="row g-4 align-items-end">
+      <div class="col-md-3">
+        <label class="form-label">📅 Tahun</label>
+        <select id="filterTahun" class="form-select"><option value="">Semua</option></select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">📍 Kota</label>
+        <select id="filterKota" class="form-select"><option value="">Semua</option></select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">👤 Salesman</label>
+        <select id="filterSalesman" class="form-select"><option value="">Semua</option></select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">📦 Produk</label>
+        <select id="filterProduk" class="form-select"><option value="">Semua</option></select>
+      </div>
+      <div class="col-12 text-end">
+        <button id="applyFilterBtn" class="btn btn-apply">Terapkan</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <ul class="nav nav-tabs" id="dashboardTab">
+    <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#time">📈 Time Analysis</button></li>
+    <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#detail">🔍 Detail</button></li>
+  </ul>
+
+  <div class="tab-content">
+    <!-- TIME ANALYSIS -->
+    <div class="tab-pane fade show active" id="time">
+      <div class="row g-4 mb-4">
+        <div class="col-md-4"><div class="stat-card"><div class="card-title">📦 Total Qty</div><div class="card-value" id="totalQty">0</div></div></div>
+        <div class="col-md-4"><div class="stat-card"><div class="card-title">💰 Total Revenue</div><div class="card-value" id="totalRevenue">Rp 0</div></div></div>
+        <div class="col-md-4"><div class="stat-card"><div class="card-title">🔄 Transaksi</div><div class="card-value" id="transactionCount">0</div></div></div>
+      </div>
+
+      <div class="row g-4 mb-4">
+        <div class="col-lg-8">
+          <div class="stat-card">
+            <div class="card-header bg-transparent fw-bold">📅 Tren Revenue Bulanan</div>
+            <div class="chart-container"><canvas id="monthlyRevenueChart"></canvas></div>
+          </div>
+        </div>
+        <div class="col-lg-4">
+          <div class="stat-card">
+            <div class="card-header bg-transparent fw-bold">📊 Weekday vs Weekend</div>
+            <div class="chart-container" style="height:180px;"><canvas id="weekdayPieChart"></canvas></div>
+            <div class="mt-3 d-flex justify-content-around text-center">
+              <div><span class="badge bg-primary">Weekday</span><div class="fw-bold" id="weekdayRevenue">Rp 0</div><small id="weekdayPct">0%</small></div>
+              <div><span class="badge bg-warning text-dark">Weekend</span><div class="fw-bold" id="weekendRevenue">Rp 0</div><small id="weekendPct">0%</small></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="row g-3 mb-4">
+        <div class="col-6 col-md-3"><div class="stat-card text-center"><div class="card-header">Q1</div><h4 class="fw-bold" id="q1Revenue">Rp 0</h4></div></div>
+        <div class="col-6 col-md-3"><div class="stat-card text-center"><div class="card-header">Q2</div><h4 class="fw-bold" id="q2Revenue">Rp 0</h4></div></div>
+        <div class="col-6 col-md-3"><div class="stat-card text-center"><div class="card-header">Q3</div><h4 class="fw-bold" id="q3Revenue">Rp 0</h4></div></div>
+        <div class="col-6 col-md-3"><div class="stat-card text-center"><div class="card-header">Q4</div><h4 class="fw-bold" id="q4Revenue">Rp 0</h4></div></div>
+      </div>
+
+      <div class="row g-4">
+        <div class="col-md-6">
+          <div class="stat-card">
+            <div class="card-header bg-transparent fw-bold">📊 Perbandingan Revenue & Transaksi</div>
+            <div class="chart-container"><canvas id="comparisonChart"></canvas></div>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <div class="stat-card">
+            <div class="card-header bg-transparent fw-bold">📆 Kontribusi Revenue per Hari</div>
+            <div class="chart-container"><canvas id="dailyRevenueChart"></canvas></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="insight-box mt-4">
+        <strong>💡 Insight:</strong> <span id="timeInsight">Memuat...</span>
+      </div>
+    </div>
+
+    <!-- DETAIL -->
+    <div class="tab-pane fade" id="detail">
+      <div class="row g-4">
+        <div class="col-md-6">
+          <div class="stat-card">
+            <div class="card-header bg-transparent fw-bold">🏆 Top 5 Produk by Revenue</div>
+            <div class="chart-container"><canvas id="topProductRevenue"></canvas></div>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <div class="stat-card">
+            <div class="card-header bg-transparent fw-bold">🏆 Top 5 Produk by Qty</div>
+            <div class="chart-container"><canvas id="topProductQty"></canvas></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="row g-4 mt-2">
+        <div class="col-md-6">
+          <div class="stat-card">
+            <div class="card-header bg-transparent fw-bold">👥 Sales by Revenue</div>
+            <div class="chart-container"><canvas id="salesRevenue"></canvas></div>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <div class="stat-card">
+            <div class="card-header bg-transparent fw-bold">👥 Sales by Qty</div>
+            <div class="chart-container"><canvas id="salesQty"></canvas></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="row g-4 mt-2">
+        <div class="col-md-6">
+          <div class="stat-card">
+            <div class="card-header bg-transparent fw-bold">🏢 Top 10 Customer by Revenue</div>
+            <div class="chart-container"><canvas id="custRevenue"></canvas></div>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <div class="stat-card">
+            <div class="card-header bg-transparent fw-bold">🏢 Top 10 Customer by Qty</div>
+            <div class="chart-container"><canvas id="custQty"></canvas></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="row g-4 mt-2">
+        <div class="col-md-6">
+          <div class="stat-card">
+            <div class="card-header bg-transparent fw-bold">🌍 Kota by Revenue</div>
+            <div class="chart-container"><canvas id="cityRevenue"></canvas></div>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <div class="stat-card">
+            <div class="card-header bg-transparent fw-bold">🌍 Kota by Qty</div>
+            <div class="chart-container"><canvas id="cityQty"></canvas></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Grafik Customer Harian -->
+      <div class="row g-4 mt-2">
+        <div class="col-md-12">
+          <div class="stat-card">
+            <div class="card-header bg-transparent fw-bold">📈 Revenue Harian per Customer (Top 5)</div>
+            <div class="chart-container" style="height: 350px;"><canvas id="custDailyChart"></canvas></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tabel Diskon -->
+      <div class="row g-4 mt-2">
+        <div class="col-md-12">
+          <div class="stat-card">
+            <div class="card-header bg-transparent fw-bold">🎯 Produk dengan Diskon (Disc. 1)</div>
+            <div style="max-height: 400px; overflow-y: auto;">
+              <table class="table table-striped">
+                <thead><tr><th>Nama Customer</th><th>Kode Barang</th><th>Diskon (%)</th><th>Diskon (Rp)</th></tr></thead>
+                <tbody id="discountTableBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+  let monthlyRevenueChart, weekdayPieChart, comparisonChart, dailyRevenueChart;
+  let topProductRevenueChart, topProductQtyChart, salesRevenueChart, salesQtyChart;
+  let custRevenueChart, custQtyChart, cityRevenueChart, cityQtyChart;
+  let custDailyChart; // New chart
+
+  document.getElementById('currentDate').innerText = new Date().toLocaleDateString('id-ID', { day:'numeric', month:'long', year:'numeric' });
+
+  function showLoading() { document.getElementById('loadingSpinner').style.display = 'flex'; }
+  function hideLoading() { document.getElementById('loadingSpinner').style.display = 'none'; }
+
+  function formatRupiah(angka) {
+    return 'Rp ' + angka.toLocaleString('id-ID', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+  }
+
+  // Inisialisasi filter
+  google.script.run.withSuccessHandler(populateFilters).getFilterOptions();
+
+  function populateFilters(options) {
+    const tahun = document.getElementById('filterTahun');
+    options.tahun.forEach(t => tahun.add(new Option(t, t)));
+    const kota = document.getElementById('filterKota');
+    options.kota.forEach(k => kota.add(new Option(k, k)));
+    const salesman = document.getElementById('filterSalesman');
+    options.salesman.forEach(s => salesman.add(new Option(s, s)));
+    const produk = document.getElementById('filterProduk');
+    options.produk.forEach(p => produk.add(new Option(p, p)));
+  }
+
+  document.getElementById('applyFilterBtn').addEventListener('click', function() {
+    const filters = {
+      tahun: document.getElementById('filterTahun').value,
+      kota: document.getElementById('filterKota').value,
+      salesman: document.getElementById('filterSalesman').value,
+      produk: document.getElementById('filterProduk').value
+    };
+    refreshDashboard(filters);
+  });
+
+  function refreshDashboard(filters) {
+    showLoading();
+    google.script.run
+      .withSuccessHandler(renderDashboard)
+      .withFailureHandler(err => { alert('Error: ' + err.message); hideLoading(); })
+      .getDashboardData(filters);
+  }
+
+  function renderDashboard(data) {
+    hideLoading();
+    console.log(data);
+    const ta = data.timeAnalysis;
+
+    // KPI
+    document.getElementById('totalQty').innerText = ta.totalQty.toLocaleString();
+    document.getElementById('totalRevenue').innerText = formatRupiah(ta.totalRevenue);
+    document.getElementById('transactionCount').innerText = ta.transactionCount.toLocaleString();
+
+    // Quartal
+    document.getElementById('q1Revenue').innerText = formatRupiah(ta.quarterRevenue.Q1);
+    document.getElementById('q2Revenue').innerText = formatRupiah(ta.quarterRevenue.Q2);
+    document.getElementById('q3Revenue').innerText = formatRupiah(ta.quarterRevenue.Q3);
+    document.getElementById('q4Revenue').innerText = formatRupiah(ta.quarterRevenue.Q4);
+
+    // Weekday vs Weekend
+    const wd = ta.weekdayRevenue.weekday, we = ta.weekdayRevenue.weekend;
+    document.getElementById('weekdayRevenue').innerText = formatRupiah(wd);
+    document.getElementById('weekendRevenue').innerText = formatRupiah(we);
+    const total = wd + we;
+    document.getElementById('weekdayPct').innerText = total ? ((wd/total)*100).toFixed(2)+'%' : '0%';
+    document.getElementById('weekendPct').innerText = total ? ((we/total)*100).toFixed(2)+'%' : '0%';
+
+    // Monthly revenue line
+    const monthly = ta.monthlyRevenue;
+    if (monthlyRevenueChart) monthlyRevenueChart.destroy();
+    monthlyRevenueChart = new Chart(document.getElementById('monthlyRevenueChart'), {
+      type: 'line',
+      data: {
+        labels: monthly.map(m => m.bulan),
+        datasets: [{
+          label: 'Revenue',
+          data: monthly.map(m => m.revenue),
+          borderColor: '#0d3b66',
+          backgroundColor: 'rgba(13,59,102,0.05)',
+          tension: 0.2
+        }]
+      },
+      options: { responsive: true, maintainAspectRatio: false, scales: { y: { ticks: { callback: v => formatRupiah(v) } } } }
+    });
+
+    // Weekday pie
+    if (weekdayPieChart) weekdayPieChart.destroy();
+    weekdayPieChart = new Chart(document.getElementById('weekdayPieChart'), {
+      type: 'pie',
+      data: {
+        labels: ['Weekday', 'Weekend'],
+        datasets: [{ data: [wd, we], backgroundColor: ['#0d3b66', '#ffb347'] }]
+      },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { tooltip: { callbacks: { label: ctx => formatRupiah(ctx.raw) } } } }
+    });
+
+    // Comparison chart (revenue & transaksi)
+    const trans = ta.monthlyTrans;
+    if (comparisonChart) comparisonChart.destroy();
+    comparisonChart = new Chart(document.getElementById('comparisonChart'), {
+      type: 'bar',
+      data: {
+        labels: monthly.map(m => m.bulan),
+        datasets: [
+          { label: 'Revenue', data: monthly.map(m => m.revenue), yAxisID: 'y', backgroundColor: '#0d3b66' },
+          { label: 'Transaksi', data: trans.map(t => t.transaksi), yAxisID: 'y1', backgroundColor: '#ff9f40' }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          y: { type: 'linear', position: 'left', ticks: { callback: v => formatRupiah(v) } },
+          y1: { type: 'linear', position: 'right', grid: { drawOnChartArea: false } }
+        }
+      }
+    });
+
+    // Daily revenue
+    if (dailyRevenueChart) dailyRevenueChart.destroy();
+    dailyRevenueChart = new Chart(document.getElementById('dailyRevenueChart'), {
+      type: 'bar',
+      data: {
+        labels: ta.dailyRevenue.map(d => d.hari),
+        datasets: [{
+          label: 'Revenue',
+          data: ta.dailyRevenue.map(d => d.revenue),
+          backgroundColor: '#1a4d80'
+        }]
+      },
+      options: { responsive: true, maintainAspectRatio: false, scales: { y: { ticks: { callback: v => formatRupiah(v) } } } }
+    });
+
+    // Insight
+    const maxMonth = ta.maxMonth;
+    document.getElementById('timeInsight').innerText = `Total revenue ${formatRupiah(ta.totalRevenue)}. Penjualan tertinggi pada ${maxMonth.bulan} sebesar ${formatRupiah(maxMonth.revenue)}. Kontribusi weekday ${((wd/total)*100).toFixed(2)}%, weekend ${((we/total)*100).toFixed(2)}%.`;
+
+    // DETAIL CHARTS
+    // Top produk revenue
+    if (topProductRevenueChart) topProductRevenueChart.destroy();
+    topProductRevenueChart = new Chart(document.getElementById('topProductRevenue'), {
+      type: 'bar',
+      data: {
+        labels: data.topProducts.map(p => p.kode),
+        datasets: [{
+          label: 'Revenue',
+          data: data.topProducts.map(p => p.total),
+          backgroundColor: '#0d3b66'
+        }]
+      },
+      options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, scales: { x: { ticks: { callback: v => formatRupiah(v) } } } }
+    });
+
+    // Top produk qty
+    if (topProductQtyChart) topProductQtyChart.destroy();
+    topProductQtyChart = new Chart(document.getElementById('topProductQty'), {
+      type: 'bar',
+      data: {
+        labels: data.topProductsQty.map(p => p.kode),
+        datasets: [{
+          label: 'Quantity',
+          data: data.topProductsQty.map(p => p.qty),
+          backgroundColor: '#ff9f40'
+        }]
+      },
+      options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false }
+    });
+
+    // Sales revenue
+    if (salesRevenueChart) salesRevenueChart.destroy();
+    salesRevenueChart = new Chart(document.getElementById('salesRevenue'), {
+      type: 'bar',
+      data: {
+        labels: data.salesRevenue.map(s => s.nama),
+        datasets: [{
+          label: 'Revenue',
+          data: data.salesRevenue.map(s => s.total),
+          backgroundColor: '#36a2eb'
+        }]
+      },
+      options: { responsive: true, maintainAspectRatio: false, scales: { y: { ticks: { callback: v => formatRupiah(v) } } } }
+    });
+
+    // Sales qty
+    if (salesQtyChart) salesQtyChart.destroy();
+    salesQtyChart = new Chart(document.getElementById('salesQty'), {
+      type: 'bar',
+      data: {
+        labels: data.salesQty.map(s => s.nama),
+        datasets: [{
+          label: 'Quantity',
+          data: data.salesQty.map(s => s.qty),
+          backgroundColor: '#ff6384'
+        }]
+      },
+      options: { responsive: true, maintainAspectRatio: false }
+    });
+
+    // Cust revenue
+    if (custRevenueChart) custRevenueChart.destroy();
+    custRevenueChart = new Chart(document.getElementById('custRevenue'), {
+      type: 'bar',
+      data: {
+        labels: data.custRevenue.map(c => c.nama),
+        datasets: [{
+          label: 'Revenue',
+          data: data.custRevenue.map(c => c.total),
+          backgroundColor: '#4bc0c0'
+        }]
+      },
+      options: { responsive: true, maintainAspectRatio: false, scales: { y: { ticks: { callback: v => formatRupiah(v) } } } }
+    });
+
+    // Cust qty
+    if (custQtyChart) custQtyChart.destroy();
+    custQtyChart = new Chart(document.getElementById('custQty'), {
+      type: 'bar',
+      data: {
+        labels: data.custQty.map(c => c.nama),
+        datasets: [{
+          label: 'Quantity',
+          data: data.custQty.map(c => c.qty),
+          backgroundColor: '#9966ff'
+        }]
+      },
+      options: { responsive: true, maintainAspectRatio: false }
+    });
+
+    // City revenue
+    if (cityRevenueChart) cityRevenueChart.destroy();
+    cityRevenueChart = new Chart(document.getElementById('cityRevenue'), {
+      type: 'bar',
+      data: {
+        labels: data.cityRevenue.map(c => c.kota),
+        datasets: [{
+          label: 'Revenue',
+          data: data.cityRevenue.map(c => c.total),
+          backgroundColor: '#ff9f40'
+        }]
+      },
+      options: { responsive: true, maintainAspectRatio: false, scales: { y: { ticks: { callback: v => formatRupiah(v) } } } }
+    });
+
+    // City qty
+    if (cityQtyChart) cityQtyChart.destroy();
+    cityQtyChart = new Chart(document.getElementById('cityQty'), {
+      type: 'bar',
+      data: {
+        labels: data.cityQty.map(c => c.kota),
+        datasets: [{
+          label: 'Quantity',
+          data: data.cityQty.map(c => c.qty),
+          backgroundColor: '#ff6384'
+        }]
+      },
+      options: { responsive: true, maintainAspectRatio: false }
+    });
+
+    // Customer daily line chart
+    if (custDailyChart) custDailyChart.destroy();
+    const datasets = data.custDailyData.map((cust, idx) => ({
+      label: cust.customer,
+      data: cust.values,
+      borderColor: `hsl(${idx * 60}, 70%, 50%)`,
+      backgroundColor: 'transparent',
+      tension: 0.1,
+      fill: false
+    }));
+    custDailyChart = new Chart(document.getElementById('custDailyChart'), {
+      type: 'line',
+      data: {
+        labels: data.allDates,
+        datasets: datasets
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: { y: { ticks: { callback: v => formatRupiah(v) }, beginAtZero: true } }
+      }
+    });
+
+    // Discount table
+    const tbody = document.getElementById('discountTableBody');
+    tbody.innerHTML = '';
+    if (data.discountRows.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="4" class="text-center">Tidak ada data diskon</td></tr>';
+    } else {
+      data.discountRows.forEach(row => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${row.nama_cust}</td><td>${row.kode_barang}</td><td>${row.diskon_persen}%</td><td>${formatRupiah(row.diskon_rupiah)}</td>`;
+        tbody.appendChild(tr);
+      });
+    }
+  }
+
+  window.onload = function() {
+    refreshDashboard({ tahun: '', kota: '', salesman: '', produk: '' });
+  };
+</script>
+</body>
+</html>
